@@ -1,5 +1,5 @@
 (function () {
-    const allowedHost = ""; 
+    const allowedHost = "jannat-mbbdteam.blogspot.com"; 
     if (window.location.hostname !== allowedHost) {
         console.warn("🚨 Unauthorized access detected! 🚨");
         
