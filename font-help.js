@@ -1,6 +1,4 @@
-
-  
-  (function () {
+(function () {
     const allowedHost = ""; 
     if (window.location.hostname !== allowedHost) {
         console.warn("🚨 Unauthorized access detected! 🚨");
