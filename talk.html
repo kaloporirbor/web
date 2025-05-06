@@ -1,0 +1,829 @@
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <title>Rimu Akther</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    rel="stylesheet"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      background-color: #f9fafb;
+    }
+    #messages {
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+      overscroll-behavior: contain;
+    }
+    #messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    #messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #messages::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 3px;
+    }
+    #fileInput {
+      display: none;
+    }
+    .like-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2563eb;
+      color: white;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 9999px;
+      white-space: nowrap;
+      user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease-in-out;
+      z-index: 10;
+    }
+    .like-container:hover .like-tooltip {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .message-bubble {
+      position: relative;
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+      transition: background-color 0.2s ease;
+      word-break: break-word;
+    }
+    .message-bubble:hover .msg-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .msg-actions {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      font-size: 0.85rem;
+      color: rgba(107, 114, 128, 0.7);
+    }
+    .msg-actions button {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+    }
+    .msg-actions button:hover {
+      background-color: rgba(59, 130, 246, 0.15);
+      color: #2563eb;
+    }
+    textarea.edit-textarea {
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid #cbd5e1;
+      padding: 0.25rem 0.5rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 2rem;
+      max-height: 6rem;
+      outline-offset: 2px;
+    }
+    /* Login modal */
+    #loginModal {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(3px);
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+  <!-- Login Modal -->
+  <div
+    id="loginModal"
+    class="fixed inset-0 flex items-center justify-center z-50"
+    aria-modal="true"
+    role="dialog"
+  >
+    <div
+      class="bg-white rounded-xl shadow-lg max-w-sm w-full p-6 mx-4"
+      role="document"
+    >
+      <h2 class="text-2xl font-semibold mb-4 text-center text-gray-900">
+        Who are you?
+      </h2>
+      <form id="loginForm" class="space-y-4" autocomplete="off" novalidate>
+        <div>
+          <label
+            for="passwordInput"
+            class="block text-sm font-medium text-gray-700 mb-1"
+            >Password</label
+          >
+          <input
+            id="passwordInput"
+            name="password"
+            type="password"
+            required
+            class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-gray-900"
+            placeholder="Enter your password"
+            aria-describedby="loginError"
+          />
+          <p
+            id="loginError"
+            class="mt-1 text-xs text-red-600 hidden"
+            role="alert"
+          >
+            Sorry! You are wrong person. i can't give you access.
+          </p>
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          Login
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header
+    class="flex items-center justify-between bg-white shadow px-5 py-3 sticky top-0 z-30"
+    aria-label="Chat header"
+  >
+    <div class="flex items-center space-x-3">
+      <img alt="Profile picture of girlfriend, smiling young woman with long hair, casual clothes, soft natural light" class="w-11 h-11 rounded-full object-cover ring-2 ring-blue-500" height="44" id="profilePic" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmjAhuMolVxno1dMweXAG_ZJ6lbydksFECQg&amp;usqp=CAU" width="44"
+      />
+      <div>
+        <h1
+          id="chatTitle"
+          class="text-xl font-semibold text-gray-900 tracking-wide"
+        >
+          Talk
+        </h1>
+        <p class="text-xs text-gray-500">No Problem! it is safe!</p>
+      </div>
+    </div>
+    <button
+      aria-label="Toggle emoji picker"
+      class="text-3xl text-gray-600 hover:text-blue-600 focus:outline-none"
+      id="btnEmojiToggle"
+      type="button"
+    >
+      <i class="far fa-smile"></i>
+    </button>
+  </header>
+
+  <!-- Chat container -->
+  <main class="flex-1 flex flex-col bg-white overflow-hidden" aria-live="polite" aria-relevant="additions">
+    <div
+      id="messages"
+      class="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+      tabindex="0"
+      aria-label="Chat messages"
+      style="min-height:0;"
+    ></div>
+  </main>
+
+  <!-- Reply preview bar -->
+  <div
+    class="hidden bg-gray-100 border-t border-b border-gray-300 px-5 py-2 flex items-center space-x-3"
+    id="replyPreview"
+  >
+    <button
+      aria-label="Cancel reply"
+      class="text-gray-500 hover:text-gray-700 focus:outline-none"
+      id="btnCancelReply"
+      type="button"
+    >
+      <i class="fas fa-times"></i>
+    </button>
+    <div class="flex-1 text-sm text-gray-700 truncate" id="replyPreviewText"></div>
+  </div>
+
+  <!-- Input area -->
+  <footer
+    class="bg-white border-t border-gray-300 px-5 py-3 flex items-center space-x-3"
+    aria-label="Message input area"
+  >
+    <button
+      aria-label="Attach file"
+      class="text-gray-600 hover:text-blue-600 focus:outline-none text-2xl"
+      id="btnAttach"
+      type="button"
+    >
+      <i class="fas fa-paperclip"></i>
+    </button>
+    <input
+      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+      id="fileInput"
+      multiple
+      type="file"
+      aria-label="Attach files"
+    />
+    <div class="relative flex-1">
+      <textarea
+        aria-label="Type a message"
+        class="resize-none w-full rounded-full border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 px-5 py-3 pr-12 text-gray-900 placeholder-gray-400"
+        id="inputMessage"
+        placeholder="Type a message"
+        rows="1"
+        style="max-height: 6rem; overflow-y: auto;"
+      ></textarea>
+      <button
+        aria-label="Send message"
+        class="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800 disabled:text-blue-300 focus:outline-none"
+        disabled
+        id="btnSend"
+        type="button"
+      >
+        <i class="fas fa-paper-plane text-xl"></i>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Emoji picker panel -->
+  <div
+    aria-label="Emoji picker"
+    class="hidden absolute bottom-20 left-5 right-5 max-w-md mx-auto bg-white border border-gray-300 rounded-xl shadow-lg p-4 grid grid-cols-5 gap-3 z-40"
+    id="emojiPicker"
+    role="list"
+  >
+    <button
+      aria-label="Grinning face"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="😀"
+      type="button"
+    >
+      😀
+    </button>
+    <button
+      aria-label="Heart eyes"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="😍"
+      type="button"
+    >
+      😍
+    </button>
+    <button
+      aria-label="Face with tears of joy"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="😂"
+      type="button"
+    >
+      😂
+    </button>
+    <button
+      aria-label="Thinking face"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="🤔"
+      type="button"
+    >
+      🤔
+    </button>
+    <button
+      aria-label="Crying face"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="😢"
+      type="button"
+    >
+      😢
+    </button>
+    <button
+      aria-label="Angry face"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="😠"
+      type="button"
+    >
+      😠
+    </button>
+    <button
+      aria-label="Thumbs up"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="👍"
+      type="button"
+    >
+      👍
+    </button>
+    <button
+      aria-label="Clapping hands"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="👏"
+      type="button"
+    >
+      👏
+    </button>
+    <button
+      aria-label="Red heart"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="&#10084;&#65039;"
+      type="button"
+    >
+      &#10084;&#65039;
+    </button>
+    <button
+      aria-label="Fire"
+      class="text-3xl hover:bg-gray-200 rounded-lg p-1"
+      data-emoji="🔥"
+      type="button"
+    >
+      🔥
+    </button>
+  </div>
+
+  <script>
+   const firebaseConfig = {
+  apiKey: "AIzaSyCWV621ZkPyp_vKYdDlSqygNugIiNhtB5U",
+  authDomain: "mbbdteam-blood.firebaseapp.com",
+  databaseURL: "https://mbbdteam-blood-default-rtdb.firebaseio.com",
+  projectId: "mbbdteam-blood",
+  storageBucket: "mbbdteam-blood.appspot.com",
+  messagingSenderId: "636160643484",
+  appId: "1:636160643484:web:a4e18a92a6701584acf859",
+  measurementId: "G-9CVN66S0T0"
+};
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Elements
+    const loginModal = document.getElementById("loginModal");
+    const loginForm = document.getElementById("loginForm");
+    const passwordInput = document.getElementById("passwordInput");
+    const loginError = document.getElementById("loginError");
+    const chatTitle = document.getElementById("chatTitle");
+    const profilePic = document.getElementById("profilePic");
+    const messagesEl = document.getElementById("messages");
+    const inputMessage = document.getElementById("inputMessage");
+    const btnSend = document.getElementById("btnSend");
+    const btnAttach = document.getElementById("btnAttach");
+    const fileInput = document.getElementById("fileInput");
+    const emojiPicker = document.getElementById("emojiPicker");
+    const btnEmojiToggle = document.getElementById("btnEmojiToggle");
+    const replyPreview = document.getElementById("replyPreview");
+    const replyPreviewText = document.getElementById("replyPreviewText");
+    const btnCancelReply = document.getElementById("btnCancelReply");
+
+    // State
+    let messages = [];
+    let replyTo = null;
+    let editingId = null;
+    let currentUser = null; // {userid, name}
+    let otherUser = null; // The other user in chat
+
+    // Load users from JSON URL
+    async function loadUsers() {
+      try {
+        const res = await fetch(
+          "https://opensheet.elk.sh/1y5gin4jdxFGcWyvG3q9IZY5mtye5yCfCkZ1EbawV5C8/user"
+        );
+        if (!res.ok) throw new Error("Failed to load users");
+        const data = await res.json();
+        return data;
+      } catch (e) {
+        alert("Failed to load user data. Please check your internet connection.");
+        throw e;
+      }
+    }
+
+    // Login form submit handler
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.classList.add("hidden");
+      const password = passwordInput.value.trim();
+      if (!password) return;
+
+      try {
+        const users = await loadUsers();
+        const user = users.find((u) => u.password === password);
+        if (!user) {
+          loginError.classList.remove("hidden");
+          return;
+        }
+        currentUser = { userid: user.userid, name: user.name };
+        // Determine other user (the one not logged in)
+        otherUser = users.find((u) => u.userid !== currentUser.userid);
+        if (!otherUser) {
+          alert("No other user found for chat.");
+          return;
+        }
+        loginModal.style.display = "none";
+        initializeChat();
+      } catch {
+        loginError.classList.remove("hidden");
+      }
+    });
+
+    // Format time helper
+    function formatTime(date) {
+      const d = new Date(date);
+      let h = d.getHours();
+      const m = d.getMinutes();
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      return h + ":" + (m < 10 ? "0" + m : m) + " " + ampm;
+    }
+
+    // Create message element
+    function createMessageElement(msg) {
+      const isSent = msg.sender === currentUser.userid;
+      const container = document.createElement("div");
+      container.className = `flex ${isSent ? "justify-end" : "justify-start"}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = `message-bubble max-w-[75%] relative rounded-xl p-4 flex flex-col space-y-1 ${
+        isSent ? "bg-blue-600 text-white rounded-br-none" : "bg-gray-200 text-gray-900 rounded-bl-none"
+      }`;
+
+      // Reply preview
+      if (msg.replyTo) {
+        const repliedMsg = messages.find((m) => m.id === msg.replyTo);
+        if (repliedMsg) {
+          const replyDiv = document.createElement("div");
+          replyDiv.className = `bg-${isSent ? "blue-500" : "gray-300"} rounded px-3 py-1 mb-2 text-xs truncate max-w-full opacity-80`;
+          replyDiv.textContent = repliedMsg.text || (repliedMsg.file ? repliedMsg.file.name : "");
+          bubble.appendChild(replyDiv);
+        }
+      }
+
+      // Content or edit textarea
+      if (editingId === msg.id) {
+        const textarea = document.createElement("textarea");
+        textarea.className = "edit-textarea";
+        textarea.value = msg.text || "";
+        textarea.rows = 1;
+        textarea.addEventListener("input", () => {
+          textarea.style.height = "auto";
+          textarea.style.height = textarea.scrollHeight + "px";
+        });
+        textarea.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            finishEdit(msg.id, textarea.value.trim());
+          }
+          if (e.key === "Escape") {
+            cancelEdit();
+          }
+        });
+        setTimeout(() => textarea.focus(), 10);
+        bubble.appendChild(textarea);
+
+        const editActions = document.createElement("div");
+        editActions.className = "flex justify-end space-x-2 mt-2";
+
+        const btnSave = document.createElement("button");
+        btnSave.type = "button";
+        btnSave.className = "text-blue-600 font-semibold hover:underline focus:outline-none";
+        btnSave.textContent = "Save";
+        btnSave.addEventListener("click", () => finishEdit(msg.id, textarea.value.trim()));
+        editActions.appendChild(btnSave);
+
+        const btnCancel = document.createElement("button");
+        btnCancel.type = "button";
+        btnCancel.className = "text-gray-600 hover:underline focus:outline-none";
+        btnCancel.textContent = "Cancel";
+        btnCancel.addEventListener("click", cancelEdit);
+        editActions.appendChild(btnCancel);
+
+        bubble.appendChild(editActions);
+      } else {
+        if (msg.text) {
+          const textEl = document.createElement("div");
+          textEl.className = "whitespace-pre-wrap break-words select-text";
+          textEl.textContent = msg.text;
+          bubble.appendChild(textEl);
+        }
+        if (msg.file) {
+          const file = msg.file;
+          if (file.type.startsWith("image/")) {
+            const img = document.createElement("img");
+            img.src = msg.file.url;
+            img.alt = msg.file.alt || "Sent image attachment";
+            img.className = "rounded max-w-full max-h-48 mt-2 cursor-pointer object-cover shadow-md";
+            img.loading = "lazy";
+            bubble.appendChild(img);
+          } else if (file.type.startsWith("video/")) {
+            const video = document.createElement("video");
+            video.src = msg.file.url;
+            video.controls = true;
+            video.className = "rounded max-w-full max-h-48 mt-2 shadow-md";
+            bubble.appendChild(video);
+          } else if (file.type.startsWith("audio/")) {
+            const audio = document.createElement("audio");
+            audio.src = msg.file.url;
+            audio.controls = true;
+            audio.className = "mt-2 w-full";
+            bubble.appendChild(audio);
+          } else {
+            const fileLink = document.createElement("a");
+            fileLink.href = msg.file.url;
+            fileLink.target = "_blank";
+            fileLink.rel = "noopener noreferrer";
+            fileLink.className = "underline text-blue-700 hover:text-blue-900 mt-2 block truncate max-w-full";
+            fileLink.textContent = msg.file.name || "Download file";
+            bubble.appendChild(fileLink);
+          }
+        }
+      }
+
+      // Bottom row: time and actions
+      if (editingId !== msg.id) {
+        const bottomRow = document.createElement("div");
+        bottomRow.className = "flex items-center justify-between text-xs opacity-70 mt-3 select-none";
+
+        const timeEl = document.createElement("time");
+        timeEl.dateTime = new Date(msg.timestamp).toISOString();
+        timeEl.textContent = formatTime(msg.timestamp);
+        bottomRow.appendChild(timeEl);
+
+        const actions = document.createElement("div");
+        actions.className = "msg-actions";
+
+        // Reply
+        const btnReply = document.createElement("button");
+        btnReply.type = "button";
+        btnReply.title = "Reply to message";
+        btnReply.innerHTML = '<i class="fas fa-reply"></i>';
+        btnReply.addEventListener("click", () => {
+          replyTo = msg.id;
+          replyPreviewText.textContent = msg.text || (msg.file ? msg.file.name : "");
+          replyPreview.classList.remove("hidden");
+          inputMessage.focus();
+        });
+        actions.appendChild(btnReply);
+
+        // Edit (only for sender)
+        if (isSent) {
+          const btnEdit = document.createElement("button");
+          btnEdit.type = "button";
+          btnEdit.title = "Edit message";
+          btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+          btnEdit.addEventListener("click", () => {
+            editingId = msg.id;
+            renderMessages();
+          });
+          actions.appendChild(btnEdit);
+        }
+
+        // Unsend/Delete (only for sender)
+        if (isSent) {
+          const btnDelete = document.createElement("button");
+          btnDelete.type = "button";
+          btnDelete.title = "Delete message";
+          btnDelete.innerHTML = '<i class="fas fa-trash-alt"></i>';
+          btnDelete.addEventListener("click", () => {
+            if (confirm("Are you sure you want to delete this message?")) {
+              deleteMessage(msg.id);
+            }
+          });
+          actions.appendChild(btnDelete);
+        }
+
+        // Like
+        const likeContainer = document.createElement("div");
+        likeContainer.className = "relative like-container cursor-pointer select-none text-gray-500 hover:text-red-500";
+        likeContainer.title = "Like message";
+
+        const btnLike = document.createElement("button");
+        btnLike.type = "button";
+        btnLike.className = "focus:outline-none";
+        btnLike.innerHTML = msg.likedByMe ? '<i class="fas fa-heart text-red-500"></i>' : '<i class="far fa-heart"></i>';
+        btnLike.addEventListener("click", () => {
+          toggleLike(msg.id);
+        });
+        likeContainer.appendChild(btnLike);
+
+        const likeTooltip = document.createElement("div");
+        likeTooltip.className = "like-tooltip";
+        likeTooltip.textContent = `${msg.likes || 0} like${(msg.likes || 0) !== 1 ? "s" : ""}`;
+        likeContainer.appendChild(likeTooltip);
+
+        actions.appendChild(likeContainer);
+
+        bottomRow.appendChild(actions);
+        bubble.appendChild(bottomRow);
+      }
+
+      container.appendChild(bubble);
+      return container;
+    }
+
+    // Render all messages
+    function renderMessages() {
+      messagesEl.innerHTML = "";
+      messages.forEach((msg) => {
+        const el = createMessageElement(msg);
+        messagesEl.appendChild(el);
+      });
+      // Scroll to bottom smoothly after rendering
+      setTimeout(() => {
+        messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" });
+      }, 10);
+    }
+
+    // Add message to Firebase
+    function addMessage({ text, file, replyTo }) {
+      if (!text && !file) return;
+      const id = "msg-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+      const newMsg = {
+        id,
+        sender: currentUser.userid,
+        text: text || "",
+        file: file || null,
+        timestamp: Date.now(),
+        replyTo: replyTo || null,
+        likes: 0,
+        likedByMe: false,
+      };
+      // Push to Firebase using update with child path to avoid overwrite
+      db.ref(`messages/${chatId()}/${id}`).set(newMsg, (error) => {
+        if (error) {
+          alert("Failed to send message. Please try again.");
+        }
+      });
+      inputMessage.value = "";
+      btnSend.disabled = true;
+      replyTo = null;
+      replyPreview.classList.add("hidden");
+    }
+
+    // Update message text in Firebase
+    function finishEdit(id, newText) {
+      if (newText === "") {
+        if (confirm("Message is empty. Delete it?")) {
+          deleteMessage(id);
+        } else {
+          cancelEdit();
+        }
+      } else {
+        db.ref(`messages/${chatId()}/${id}/text`).set(newText);
+        editingId = null;
+      }
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      renderMessages();
+    }
+
+    // Delete message from Firebase
+    function deleteMessage(id) {
+      db.ref(`messages/${chatId()}/${id}`).remove();
+      if (replyTo === id) {
+        replyTo = null;
+        replyPreview.classList.add("hidden");
+      }
+      if (editingId === id) editingId = null;
+    }
+
+    // Toggle like in Firebase
+    function toggleLike(id) {
+      const msg = messages.find((m) => m.id === id);
+      if (!msg) return;
+      const likedByMe = !msg.likedByMe;
+      const likes = likedByMe ? (msg.likes || 0) + 1 : Math.max((msg.likes || 1) - 1, 0);
+      db.ref(`messages/${chatId()}/${id}`).update({ likedByMe, likes });
+    }
+
+    // Listen for messages changes in Firebase
+    function listenMessages() {
+      const ref = db.ref(`messages/${chatId()}`);
+      ref.off();
+      ref.on("value", (snapshot) => {
+        const val = snapshot.val() || {};
+        messages = Object.values(val).sort((a, b) => a.timestamp - b.timestamp);
+        // Mark likedByMe properly (only for current user)
+        messages.forEach((m) => {
+          m.likedByMe = !!m.likedByMe;
+        });
+        if (!editingId) renderMessages();
+      });
+    }
+
+    // Compose chatId from two userids sorted to keep consistent
+    function chatId() {
+      if (!currentUser || !otherUser) return "";
+      return [currentUser.userid, otherUser.userid].sort().join("_");
+    }
+
+    // Auto resize textarea
+    function autoResizeTextarea(el) {
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    }
+
+    // Event listeners
+    inputMessage.addEventListener("input", () => {
+      btnSend.disabled = inputMessage.value.trim() === "";
+      autoResizeTextarea(inputMessage);
+    });
+
+    btnSend.addEventListener("click", () => {
+      addMessage({ text: inputMessage.value.trim(), replyTo });
+    });
+
+    inputMessage.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (!btnSend.disabled) {
+          addMessage({ text: inputMessage.value.trim(), replyTo });
+        }
+      }
+      if (e.key === "Escape") {
+        if (replyTo) {
+          replyTo = null;
+          replyPreview.classList.add("hidden");
+        }
+        if (editingId) {
+          cancelEdit();
+        }
+      }
+    });
+
+    btnAttach.addEventListener("click", () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", () => {
+      const files = Array.from(fileInput.files);
+      files.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          addMessage({
+            file: {
+              url: e.target.result,
+              type: file.type,
+              name: file.name,
+              alt: `Attachment file named ${file.name}`,
+            },
+            replyTo,
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+      fileInput.value = "";
+    });
+
+    btnEmojiToggle.addEventListener("click", () => {
+      if (emojiPicker.classList.contains("hidden")) {
+        emojiPicker.classList.remove("hidden");
+        inputMessage.focus();
+      } else {
+        emojiPicker.classList.add("hidden");
+      }
+    });
+
+    emojiPicker.addEventListener("click", (e) => {
+      if (e.target.dataset && e.target.dataset.emoji) {
+        const emoji = e.target.dataset.emoji;
+        const start = inputMessage.selectionStart;
+        const end = inputMessage.selectionEnd;
+        const text = inputMessage.value;
+        inputMessage.value = text.substring(0, start) + emoji + text.substring(end);
+        inputMessage.selectionStart = inputMessage.selectionEnd = start + emoji.length;
+        inputMessage.focus();
+        btnSend.disabled = inputMessage.value.trim() === "";
+      }
+    });
+
+    btnCancelReply.addEventListener("click", () => {
+      replyTo = null;
+      replyPreview.classList.add("hidden");
+      inputMessage.focus();
+    });
+
+    // Close emoji picker if clicked outside
+    document.addEventListener("click", (e) => {
+      if (!emojiPicker.contains(e.target) && e.target !== btnEmojiToggle) {
+        emojiPicker.classList.add("hidden");
+      }
+    });
+
+    // Initialize chat after login
+    function initializeChat() {
+      chatTitle.textContent = `Chat with ${otherUser.name}`;
+      listenMessages();
+    }
+
+    // On load, show login modal
+    window.onload = () => {
+      loginModal.style.display = "flex";
+      passwordInput.focus();
+    };
+  </script>
+</body>
+</html>
